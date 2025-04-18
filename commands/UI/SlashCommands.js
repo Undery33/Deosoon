@@ -5,12 +5,13 @@ const {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   ActionRowBuilder,
+  ComponentType,
 } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("language")
-    .setDescription("language"),
+    .setName("translator")
+    .setDescription("Select your language"),
   async execute(interaction) {
     const languageSelect = new StringSelectMenuBuilder()
       .setCustomId("languageSelector")
@@ -31,9 +32,22 @@ module.exports = {
       );
     const row = new ActionRowBuilder().addComponents(languageSelect);
 
-    await interaction.reply({
-      content: "Select your language",
+    const reply = await interaction.reply({
       components: [row],
+      fetchReply: true,
+    });
+
+    const collector = reply.createMessageComponentCollector({
+      ComponentType: ComponentType.StringSelect,
+      filter: (i) =>
+        i.user.id === interaction.user.id && i.customId === "languageSelector",
+      time: 60_000,
+    });
+
+    collector.on("collect", (i) => {
+      const selected = i.values[0];
+      console.log(`${selected} selected`);
+      i.reply({ content: `Selected language : ${selected}` });
     });
   },
 };
