@@ -1,5 +1,5 @@
 # 더순 (Deosoon) 디스코드 번역 & 유저 참여형 역할 관리 봇
-![Deosoon AI Picture][./docs/Deosoon_AI.png]
+![Deosoon AI Picture](./docs/Deosoon_AI.png)
 
 > **"번역은 실시간으로, 역할은 공정하게. 더순은 당신의 디스코드 경험을 더 좋게 만듭니다."**
 
@@ -54,7 +54,7 @@
 ## 📬 참여 방법
 
 더순 개발에 함께하고 싶거나, 아이디어가 있다면  
-Undery(디스코드 서버:`discord.gg/ungdengri`)로 DM 바랍니다.
+Undery(디스코드 서버:`https://discord.gg/ungdengri`)로 DM 바랍니다.
 
 ---
 
