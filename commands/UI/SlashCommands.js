@@ -6,35 +6,46 @@ const {
   StringSelectMenuOptionBuilder,
   ActionRowBuilder,
   ComponentType,
+  MessageFlags,
 } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("translator")
-    .setDescription("Select your language"),
+    .setDescription("번역할 언어를 선택해 주세요")
+    .setDescriptionLocalizations({
+      "en-US": "Select the language to translate to",
+      "en-GB": "Select the language to translate to",
+      "ja": "翻訳する言語を選択してください",
+      "zh-CN": "请选择翻译目标语言",
+      "zh-TW": "請選擇翻譯目標語言",
+    }),
   async execute(interaction) {
     const languageSelect = new StringSelectMenuBuilder()
       .setCustomId("languageSelector")
-      .setPlaceholder("Select your language")
       .addOptions(
         new StringSelectMenuOptionBuilder()
-          .setLabel("English")
-          .setDescription("Select English")
-          .setValue("english"),
+          .setLabel("Korean / 한국어")
+          .setDescription("한국어 선택")
+          .setValue("Korean / 한국어"),
         new StringSelectMenuOptionBuilder()
-          .setLabel("Japanese")
-          .setDescription("日本語を選択")
-          .setValue("japanese"),
+          .setLabel("English / 영어")
+          .setDescription("영어 선택")
+          .setValue("English / 영어"),
         new StringSelectMenuOptionBuilder()
-          .setLabel("Chinese")
-          .setDescription("中文精选")
-          .setValue("chinese")
+          .setLabel("Japanese / 日本語")
+          .setDescription("일본어 선택")
+          .setValue("Japanese / 日本語"),
+        new StringSelectMenuOptionBuilder()
+          .setLabel("Chinese / 中文")
+          .setDescription("중국어 선택")
+          .setValue("Chinese / 中文")
       );
     const row = new ActionRowBuilder().addComponents(languageSelect);
 
     const reply = await interaction.reply({
       components: [row],
-      fetchReply: true,
+      flags: MessageFlags.Ephemeral,
     });
 
     const collector = reply.createMessageComponentCollector({
@@ -46,8 +57,21 @@ module.exports = {
 
     collector.on("collect", (i) => {
       const selected = i.values[0];
-      console.log(`${selected} selected`);
-      i.reply({ content: `Selected language : ${selected}` });
+
+      const locales = {
+        "en-US": `Selected language : ${selected}`,
+        "en-GB": `Selected language : ${selected}`,
+        "ja": `選択した言語 : ${selected}`,
+        "zh-CN": `选定的语言 : ${selected}`,
+        "zh-TW": `選定的語言 : ${selected}`,
+      };
+
+      const lang = i.locale || interaction.locale || "ko";
+
+      i.reply({
+        content: locales[lang] ?? `선택된 언어 : ${selected}`,
+        flags: MessageFlags.Ephemeral,
+      });
     });
   },
 };
