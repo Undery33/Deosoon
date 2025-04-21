@@ -93,7 +93,7 @@ client.on(Events.InteractionCreate, async interaction => {
 // 실시간 메시지 감지 및 번역 처리
 client.on('messageCreate', async message => {
 
-    // 이스터에그: '안녕 더순아' 메시지에 대한 반응
+    // 유저의 채팅을 감지하는 코드
     if (message.content.trim() === '안녕 더순아') {
         await message.reply('나에게 인사한거야? 웃겨ㅋㅋ');
         return;
@@ -102,30 +102,47 @@ client.on('messageCreate', async message => {
     // 봇 메시지 또는 이미 번역된 메시지는 무시
     if (message.author.bot || message.content.startsWith('[Translated]')) return;
 
+    // 스티커 메시지 무시
+    if (message.stickers.size > 0) return;
+
+    // 이모지만 포함된 메시지 무시
+    const onlyEmojis = message.content.trim().match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic}|\s)+$/u);
+    if (onlyEmojis) return;
+
+    // 이미지, 비디오, 오디오만 포함된 메시지 무시
+    if (message.attachments.size > 0) {
+        const hasOnlyMedia = [...message.attachments.values()].every(attachment => {
+            const mediaTypes = ['image/', 'video/', 'audio/'];
+            return mediaTypes.some(type => attachment.contentType?.startsWith(type));
+        });
+
+        if (hasOnlyMedia) return;
+    }
+
     const userId = message.author.id;
 
     // 유저 정보 조회 (DynamoDB)
     const userParams = {
-        TableName: 'Unknown', // 추가 및 수정
-        Key: { userID: { S: userId } }, // 추가 및 수정
+        TableName: 'DS_User',
+        Key: { userId: { S: userId } },
     };
 
     try {
         // 서버 설정 조회 (채널 제한 확인)
         const serverParams = {
-            TableName: 'Unknown', // 추가 및 수정
-            Key: { serverID: { S: message.guild.id } }, // 추가 및 수정
+            TableName: 'DS_Server',
+            Key: { serverId: { S: message.guild.id } },
         };
         const serverData = await dynamodbClient.send(new GetItemCommand(serverParams));
 
         if (serverData.Item) {
-            const chattingID = serverData.Item.chattingID?.S;
-            if (message.channel.id !== chattingID) {
+            const chattingIDs = serverData.Item.chattingID?.L?.map(item => item.S) ?? [];
+            if (!chattingIDs.includes(message.channel.id)) {
                 console.log('봇이 작동하지 않도록 설정된 채널입니다.');
                 return;
             }
         } else {
-            console.error('Unknown 테이블에 서버 정보 없음'); // 추가 및 수정
+            console.error('Server 테이블에 서버 정보 없음');
             return;
         }
 
@@ -133,9 +150,9 @@ client.on('messageCreate', async message => {
         const userData = await dynamodbClient.send(new GetItemCommand(userParams));
 
         if (userData.Item) {
-            const translateData = userData.Item.irt_translate?.BOOL ?? false;
-            let sourceLang = userData.Item.sourceLanguage?.S ?? 'en';
-            let targetLang = userData.Item.targetLanguage?.S ?? 'es';
+            const translateData = userData.Item.transOnOff?.BOOL ?? false;
+            let sourceLang = userData.Item.transLang?.M?.source?.S ?? 'ko';
+            let targetLang = userData.Item.transLang?.M?.target?.S ?? 'en';
 
             // 언어 코드 매핑
             const languageMap = {
@@ -150,13 +167,27 @@ client.on('messageCreate', async message => {
 
             // 번역이 활성화된 경우
             if (translateData) {
-                const validLangs = ['ko', 'en', 'es', 'fr', 'ja'];
+                const validLangs = ['ko', 'en', 'zh-TW', 'zh', 'ja'];
                 const sourceLanguageCode = validLangs.includes(sourceLang) ? sourceLang : 'en';
-                const targetLanguageCode = validLangs.includes(targetLang) ? targetLang : 'es';
+                const targetLanguageCode = validLangs.includes(targetLang) ? targetLang : 'ko';
 
-                // AWS Translate API 호출
+                // ✅ 멘션 치환 함수
+                function replaceMentionsWithUserTags(message) {
+                    let content = message.content;
+                    message.mentions.users.forEach(user => {
+                        const mentionSyntax = `<@${user.id}>`;
+                        const mentionSyntaxWithNick = `<@!${user.id}>`;
+                        const userTag = `@${user.username}`;
+                        content = content.replaceAll(mentionSyntax, userTag);
+                        content = content.replaceAll(mentionSyntaxWithNick, userTag);
+                    });
+                    return content;
+                }
+
+                const originalText = replaceMentionsWithUserTags(message);
+
                 const translateParams = {
-                    Text: message.content,
+                    Text: originalText,
                     SourceLanguageCode: sourceLanguageCode,
                     TargetLanguageCode: targetLanguageCode,
                 };
