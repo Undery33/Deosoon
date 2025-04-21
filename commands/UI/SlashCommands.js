@@ -26,20 +26,16 @@ module.exports = {
       .addOptions(
         new StringSelectMenuOptionBuilder()
           .setLabel("Korean / 한국어")
-          .setDescription("한국어 선택")
           .setValue("Korean / 한국어"),
         new StringSelectMenuOptionBuilder()
           .setLabel("English / 영어")
-          .setDescription("영어 선택")
           .setValue("English / 영어"),
         new StringSelectMenuOptionBuilder()
           .setLabel("Japanese / 日本語")
-          .setDescription("일본어 선택")
           .setValue("Japanese / 日本語"),
         new StringSelectMenuOptionBuilder()
           .setLabel("Chinese / 中文")
-          .setDescription("중국어 선택")
-          .setValue("Chinese / 中文")
+          .setValue("Chinese / 中文"),
       );
     const row = new ActionRowBuilder().addComponents(languageSelect);
 
