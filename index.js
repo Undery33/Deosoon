@@ -92,6 +92,13 @@ client.on(Events.InteractionCreate, async interaction => {
 
 // 실시간 메시지 감지 및 번역 처리
 client.on('messageCreate', async message => {
+
+    // 이스터에그: '안녕 더순아' 메시지에 대한 반응
+    if (message.content.trim() === '안녕 더순아') {
+        await message.reply('나에게 인사한거야? 웃겨ㅋㅋ');
+        return;
+    }
+
     // 봇 메시지 또는 이미 번역된 메시지는 무시
     if (message.author.bot || message.content.startsWith('[Translated]')) return;
 
