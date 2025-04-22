@@ -109,8 +109,11 @@ async function assignRoleIfEligible(member, userData) {
         if (chatCount >= tier.chat || voiceCount >= tier.voice) {
             try {
                 await member.roles.add(tier.id);
-
+    
+                // 멤버 정보 최신화
+                await member.fetch();
                 const alreadyHasTier = member.roles.cache.has(tier.id);
+    
                 if (!alreadyHasTier) {
                     const targetChannel = member.guild.channels.cache.get('1241576477116338257');
                     if (targetChannel && targetChannel.isTextBased()) {
