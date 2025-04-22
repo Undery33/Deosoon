@@ -11,6 +11,14 @@ const {
 const { TranslateClient, TranslateTextCommand } = require('@aws-sdk/client-translate');
 const { token } = require('./config.json');
 
+const languageMap = {
+    'ko': 'ko',
+    'en': 'en',
+    'ja': 'ja',
+    'zh-TW': 'zh-TW',
+    'zh': 'zh'
+};   
+
 // config 파일 경로 지정 및 로딩
 const configPath = path.resolve(__dirname, './config.json');
 let try_config;
@@ -66,7 +74,15 @@ const translateClient = new TranslateClient({
     },
 });
 
+
+
 async function assignRoleIfEligible(member, userData) {
+
+    if (!userData?.Item) {
+        console.log('유저 데이터 없음');
+        return;
+    }
+
     const chatCount = parseInt(userData.Item.userChat?.N ?? '0');
     const voiceCount = parseInt(userData.Item.joinVoice?.N ?? '0');
 
@@ -234,7 +250,7 @@ client.on('messageCreate', async message => {
             let targetLang = userData.Item.transLang?.M?.target?.S ?? 'en';
 
             sourceLang = languageMap[sourceLang] || sourceLang;
-            targetLang = languageMap[targetLang] || targetLang;
+            targetLang = languageMap[targetLang] || targetLang;         
 
             // 번역이 활성화된 경우
             if (translateData) {
