@@ -87,11 +87,11 @@ async function assignRoleIfEligible(member, userData) {
     const voiceCount = parseInt(userData.Item.joinVoice?.N ?? '0');
 
     const ROLE_TIERS = [
-        { id: '1364153977259819030', name: 'FEVER', chat: 150, voice: 50 },
-        { id: '1364153824423710720', name: '80%', chat: 100, voice: 30 },
-        { id: '1364153723474935860', name: '60%', chat: 60, voice: 15 },
-        { id: '1364153651232379020', name: '40%', chat: 40, voice: 10 },
-        { id: '1364153517295796224', name: '20%', chat: 20, voice: 5 },
+        { id: '1364153977259819030', name: 'FEVER', chat: 200, voice: 70 },
+        { id: '1364153824423710720', name: '80%', chat: 135, voice: 50 },
+        { id: '1364153723474935860', name: '60%', chat: 80, voice: 35 },
+        { id: '1364153651232379020', name: '40%', chat: 40, voice: 20 },
+        { id: '1364153517295796224', name: '20%', chat: 25, voice: 10 },
         { id: '1364153417911762965', name: '0%', chat: 0, voice: 0 },
     ];
 
@@ -106,7 +106,7 @@ async function assignRoleIfEligible(member, userData) {
     }
 
     for (const tier of ROLE_TIERS) {
-        if (chatCount >= tier.chat && voiceCount >= tier.voice) {
+        if (chatCount >= tier.chat || voiceCount >= tier.voice) {
             try {
                 await member.roles.add(tier.id);
 
