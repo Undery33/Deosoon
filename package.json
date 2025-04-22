@@ -12,6 +12,7 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.788.0",
     "@aws-sdk/client-translate": "^3.787.0",
+    "@aws-sdk/lib-dynamodb": "^3.789.0",
     "discord.js": "^14.18.0"
   }
 }
