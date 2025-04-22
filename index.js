@@ -202,7 +202,7 @@ client.on('messageCreate', async message => {
                     await message.reply('번역 중 오류가 발생했습니다. 다시 시도해 주세요.');
                 }
             } else {
-                console.log(`번역 미활성화 유저: ${userId}`);
+                console.log(`번역 비활성화 유저: ${interaction.user.username}`);
             }
         } else {
             console.error('유저 데이터 없음');

@@ -7,6 +7,33 @@ const {
   MessageFlags,
 } = require("discord.js");
 
+// AWS DynamoDB 연결
+const {
+  DynamoDBClient,
+  UpdateItemCommand
+} = require("@aws-sdk/client-dynamodb");
+
+const config = require("../../config.json");
+
+const dynamodbClient = new DynamoDBClient({
+  region: config.region,
+  credentials: {
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+  },
+});
+
+// 각 언어 매핑핑
+const languageCodeMap = {
+  "Korean / 한국어": "ko",
+  "English / 영어": "en",
+  "Japanese / 日本語": "ja",
+  "Chinese / 中文": "zh",
+  "Taiwanese / 繁體中文": "zh-TW",
+};
+
+let selectedInputLanguage = null;
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("translator")
@@ -20,7 +47,6 @@ module.exports = {
     }),
 
   async execute(interaction) {
-    let selectedInputLanguage = null;
 
     // 입력 언어 선택 메뉴
     const inputLanguage = new StringSelectMenuBuilder()
@@ -65,15 +91,15 @@ module.exports = {
     const lang = interaction.locale || "ko";
 
     const inoutputLocales = {
-      "en-US": `Select input and output languages.`,
-      "ja": `入力言語と出力言語を選択してください。`,
+      "en-US": `Select **input and output** languages.`,
+      "ja": `**入力言語と出力言語**を選択してください。`,
       "zh-CN": `请选择输入和输出语言。`,
       "zh-TW": `請選擇輸入和輸出語言。`,
     };
 
     // 하나의 메시지에 둘 다 포함
     const replyMessage = await interaction.reply({
-      content: inoutputLocales[lang] ?? "입력 언어와 출력 언어를 선택해 주세요.",
+      content: inoutputLocales[lang] ?? "**입력 언어**와 **출력 언어**를 선택해 주세요.",
       components: [inputRow, outputRow],
       flags: MessageFlags.Ephemeral,
     });
@@ -118,6 +144,30 @@ module.exports = {
       const selectedOutputLanguage = i.values[0];
       const lang = i.locale || interaction.locale || "ko";
 
+      // DynamoDB 저장
+      const userId = interaction.user.id;
+      const updateParams = {
+        TableName: "DS_User",
+        Key: { userId: { S: userId } },
+        UpdateExpression: "SET transLang = :langs, userName = :name",
+        ExpressionAttributeValues: {
+          ":langs": {
+            M: {
+              source: { S: languageCodeMap[selectedInputLanguage] },
+              target: { S: languageCodeMap[selectedOutputLanguage] },
+            },
+          },
+          ":name": { S: interaction.user.username },
+        },
+      };
+
+      try {
+        await dynamodbClient.send(new UpdateItemCommand(updateParams));
+        console.log(`[DynamoDB] ${interaction.user.username} 언어 설정 저장 완료`);
+      } catch (err) {
+        console.error("[DynamoDB] 저장 실패: ", err);
+      }
+
       const finalMessage = {
         "en-US": `✅ Input Language : ${selectedInputLanguage}\n✅ Output Language : ${selectedOutputLanguage}`,
         "ja": `✅ 入力言語 : ${selectedInputLanguage}\n✅ 出力言語 : ${selectedOutputLanguage}`,
@@ -128,7 +178,7 @@ module.exports = {
       await i.update({
         content:
           finalMessage[lang] ??
-          `✅ 입력 언어 : ${selectedInputLanguage}\n✅ 출력 언어 : ${selectedOutputLanguage}`,
+          `✅ **입력 언어 :** ${selectedInputLanguage}\n✅ **출력 언어 : **${selectedOutputLanguage}`,
         components: [],
         flags: MessageFlags.Ephemeral,
       });
