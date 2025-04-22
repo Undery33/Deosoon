@@ -1,6 +1,6 @@
 # 더수니 봇 프로젝트
 ### AWS Translate와 AWS DynamoDB를 통한 번역과 역할 관리 디스코드 봇
-![Deosoon AI Picture](./docs/Deosoon_AI.png)
+![Deosoon AI Picture](./docs/![Uploading Deosoon_AI.png…]()
 
 > **"제가 여러분들을 위해 통역해드릴게요. 물론 활동 많으면 더 좋겠죠?"**
 
