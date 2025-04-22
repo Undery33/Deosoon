@@ -37,6 +37,33 @@
 
 ---
 
+## 🤖 실행 방법
+
+### Node.js 모듈 설치
+- Node.js(22.0 이상)를 이용하여 개발하였으며, 아래 코드를 cmd에 입력하여 설치합니다.
+```cmd
+npm install discord.js @aws-sdk/client-dynamodb @aws-sdk/client-translate
+```
+
+### 필요 파일 및 구성
+- `config.json` 파일을 따로 작성하여야 합니다. 입력은 다음과 같습니다.
+```json
+{
+  "token": "디스코드봇토큰",
+  "guildId": "본인의 디스코드 서버 ID",
+  "clientId": "디스코드봇 클라이언트 ID",
+  "region": "본인의 AWS 리전",
+  "accessKeyId": "AWS_ACCESS_KEY",
+  "secretAccessKey": "AWS_SECRET_KEY"
+}
+```
+
+### AWS 리소스
+- 해당 DB는 DynamoDB로 실행되기 때문에 본인이 직접 설정을 하여야 합니다.
+- `index.js` 내 코드에서 수정을 해주세요.
+
+---
+
 ## 📐 아키텍처 개요
 
 ### 🔁 초기 세팅
