@@ -93,7 +93,6 @@ async function assignRoleIfEligible(member, userData) {
         if (chatCount >= tier.chat && voiceCount >= tier.voice) {
             try {
                 await member.roles.add(tier.id);
-                console.log(`✅ ${member.user.username}에게 등급 역할 부여됨: ${tier.id}`);
 
                 const alreadyHasTier = member.roles.cache.has(tier.id);
                 if (!alreadyHasTier) {
@@ -175,7 +174,7 @@ client.on('messageCreate', async message => {
                 }
             };
             await dynamodbClient.send(new PutItemCommand(putParams));
-            console.log(`🆕 신규 유저 ${userCountingId} 등록 및 userChat = 1`);
+            console.log(`신규 유저 ${userCountingId} 등록 및 userChat = 1`);
         }
 
         const guildMember = await message.guild.members.fetch(userCountingId);
@@ -198,6 +197,145 @@ client.on('messageCreate', async message => {
         });
         if (hasOnlyMedia) return;
     }
+
+    const userId = message.author.id;
+
+    // 유저 정보 조회 (DynamoDB)
+    const userParams = {
+        TableName: 'DS_User',
+        Key: { userId: { S: userId } },
+    };
+
+    try {
+        // 서버 설정 조회 (채널 제한 확인)
+        const serverParams = {
+            TableName: 'DS_Server',
+            Key: { serverId: { S: message.guild.id } },
+        };
+        const serverData = await dynamodbClient.send(new GetItemCommand(serverParams));
+
+        if (serverData.Item) {
+            const chattingIDs = serverData.Item.chattingID?.L?.map(item => item.S) ?? [];
+            if (!chattingIDs.includes(message.channel.id)) {
+                console.log('봇이 작동하지 않도록 설정된 채널입니다.');
+                return;
+            }
+        } else {
+            console.error('Server 테이블에 서버 정보 없음');
+            return;
+        }
+
+        // 유저의 번역 설정 및 언어 정보 조회
+        const userData = await dynamodbClient.send(new GetItemCommand(userParams));
+
+        if (userData.Item) {
+            const translateData = userData.Item.transOnOff?.BOOL ?? false;
+            let sourceLang = userData.Item.transLang?.M?.source?.S ?? 'ko';
+            let targetLang = userData.Item.transLang?.M?.target?.S ?? 'en';
+
+            sourceLang = languageMap[sourceLang] || sourceLang;
+            targetLang = languageMap[targetLang] || targetLang;
+
+            // 번역이 활성화된 경우
+            if (translateData) {
+                const validLangs = ['ko', 'en', 'zh-TW', 'zh', 'ja'];
+                const sourceLanguageCode = validLangs.includes(sourceLang) ? sourceLang : 'en';
+                const targetLanguageCode = validLangs.includes(targetLang) ? targetLang : 'ko';
+
+                // ✅ 멘션 치환 함수
+                function replaceMentionsWithUserTags(message) {
+                    let content = message.content;
+                    message.mentions.users.forEach(user => {
+                        const mentionSyntax = `<@${user.id}>`;
+                        const mentionSyntaxWithNick = `<@!${user.id}>`;
+                        const userTag = `@${user.username}`;
+                        content = content.replaceAll(mentionSyntax, userTag);
+                        content = content.replaceAll(mentionSyntaxWithNick, userTag);
+                    });
+                    return content;
+                }
+
+                const originalText = replaceMentionsWithUserTags(message);
+
+                const translateParams = {
+                    Text: originalText,
+                    SourceLanguageCode: sourceLanguageCode,
+                    TargetLanguageCode: targetLanguageCode,
+                };
+
+                try {
+                    const translateCommand = new TranslateTextCommand(translateParams);
+                    const translateResult = await translateClient.send(translateCommand);
+                    const translatedText = translateResult.TranslatedText;
+                    await message.reply(`${translatedText}`);
+                } catch (translateError) {
+                    console.error('번역 요청 오류:', translateError);
+                    await message.reply('번역 중 오류가 발생했습니다. 다시 시도해 주세요.');
+                }
+            } else {
+                console.log(`번역 비활성화 유저: ${message.author.username}`);
+            }
+        } else {
+            console.error('유저 데이터 없음');
+        }
+    } catch (error) {
+        console.error('DynamoDB 조회 오류: ', error);
+    }
 });
+
+client.on('voiceStateUpdate', async (oldState, newState) => {
+    const member = newState.member;
+    if (!member || member.user.bot) return;
+
+    const userId = member.id;
+    const userName = member.user.username;
+
+    const userParams = {
+        TableName: 'DS_userstats',
+        Key: { userId: { S: userId } },
+    };
+
+    // 입장 이벤트인지 확인 (oldState.channel 없음 && newState.channel 있음)
+    if (!oldState.channel && newState.channel) {
+        try {
+            const userData = await dynamodbClient.send(new GetItemCommand(userParams));
+
+            if (userData.Item) {
+                // 유저 존재 → joinVoice 증가
+                const updateParams = {
+                    TableName: 'DS_userstats',
+                    Key: {
+                        userId: { S: userId }
+                    },
+                    UpdateExpression: 'SET joinVoice = if_not_exists(joinVoice, :start) + :inc, lastUpdated = :now',
+                    ExpressionAttributeValues: {
+                        ':inc': { N: '1' },
+                        ':start': { N: '0' },
+                        ':now': { S: new Date().toISOString() }
+                    }
+                };
+                await dynamodbClient.send(new UpdateItemCommand(updateParams));
+                console.log(`🎤 ${userId} joinVoice +1`);
+            } else {
+                // 유저 없으면 신규 등록
+                const putParams = {
+                    TableName: 'DS_userstats',
+                    Item: {
+                        userId: { S: userId },
+                        userName: { S: userName },
+                        userChat: { N: '0' },
+                        joinVoice: { N: '1' },
+                        lastUpdated: { S: new Date().toISOString() }
+                    }
+                };
+                await dynamodbClient.send(new PutItemCommand(putParams));
+                console.log(`🆕 음성 입장 신규 유저 ${userId} 등록`);
+            }
+        } catch (err) {
+            console.error('joinVoice 증가 실패:', err);
+        }
+    }
+});
+
 
 client.login(token);
