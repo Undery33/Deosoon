@@ -4,7 +4,6 @@ node_modules/
 # 환경 변수 및 인증 정보
 .env
 .env.*          # 확장된 환경 설정
-.ppk
 
 # Discord 봇 토큰, 민감 정보 파일
 config.json
@@ -34,3 +33,6 @@ coverage/
 
 # 아카이브
 *.tgz
+
+# 보안 키 및 인증서
+*.ppk
