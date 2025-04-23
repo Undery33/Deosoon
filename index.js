@@ -152,7 +152,7 @@ client.on('messageCreate', async message => {
     const userCountingName = message.author.username;
 
     const userCountingParams = {
-        TableName: config.userStateTable,
+        TableName: config.userStatsTable,
         Key: { userId: { S: userCountingId } },
     };
 
@@ -161,11 +161,11 @@ client.on('messageCreate', async message => {
 
         if (userData.Item) {
             const updateParams = {
-                TableName: config.userStateTable,
+                TableName: config.userStatsTable,
                 Key: {
                     userId: { S: userCountingId }
                 },
-                UpdateExpression: config.setUserSatatsTable,
+                UpdateExpression: config.setUserStatsTable,
                 ExpressionAttributeValues: {
                     ':inc': { N: '1' },
                     ':start': { N: '0' },
@@ -319,7 +319,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                     Key: {
                         userId: { S: userId }
                     },
-                    UpdateExpression: config.setUserStatesTable2,
+                    UpdateExpression: config.setUserStatsTable2,
                     ExpressionAttributeValues: {
                         ':inc': { N: '1' },
                         ':start': { N: '0' },
