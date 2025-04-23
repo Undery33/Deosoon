@@ -1,3 +1,10 @@
+/*
+  유저의 입력 언어와 출력 언어를 설정하는 명령어
+  - 입력 언어와 출력 언어를 선택하는 드롭다운 메뉴를 제공
+  - 선택된 언어는 DynamoDB에 저장됨
+  - 언어 선택 후 확인 메시지를 표시
+*/
+
 const {
   SlashCommandBuilder,
   StringSelectMenuBuilder,

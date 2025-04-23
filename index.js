@@ -341,7 +341,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                     }
                 };
                 await dynamodbClient.send(new PutItemCommand(putParams));
-                console.log(`🆕 음성 입장 신규 유저 ${userId} 등록`);
+                console.log(`🆕 음성 입장 신규 유저 ${message.author.username} 등록`);
             }
         } catch (err) {
             console.error('joinVoice 증가 실패:', err);

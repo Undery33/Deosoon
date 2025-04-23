@@ -1,3 +1,9 @@
+/*
+  실시간 번역 여부를 설정하는 명령어
+  - 사용자가 실시간 번역을 켜거나 끌 수 있도록 버튼을 제공
+  - 버튼 클릭 시 DynamoDB에 설정을 저장
+*/
+
 const {
   SlashCommandBuilder,
   ActionRowBuilder,
