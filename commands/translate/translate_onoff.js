@@ -75,7 +75,7 @@ module.exports = {
       const userId = i.user.id;
 
       const command = new UpdateItemCommand({
-        TableName: "DS_User",
+        TableName: config.userTable,
         Key: {
           userId: { S: userId },
         },

@@ -86,14 +86,7 @@ async function assignRoleIfEligible(member, userData) {
     const chatCount = parseInt(userData.Item.userChat?.N ?? '0');
     const voiceCount = parseInt(userData.Item.joinVoice?.N ?? '0');
 
-    const ROLE_TIERS = [
-        { id: '1364153977259819030', name: 'FEVER', chat: 200, voice: 70 },
-        { id: '1364153824423710720', name: '80%', chat: 135, voice: 50 },
-        { id: '1364153723474935860', name: '60%', chat: 80, voice: 35 },
-        { id: '1364153651232379020', name: '40%', chat: 40, voice: 20 },
-        { id: '1364153517295796224', name: '20%', chat: 25, voice: 10 },
-        { id: '1364153417911762965', name: '0%', chat: 0, voice: 0 },
-    ];
+    const ROLE_TIERS = config.roleTiers;
 
     const currentRoleIds = ROLE_TIERS.map(t => t.id);
     const rolesToRemove = member.roles.cache.filter(role => currentRoleIds.includes(role.id));
@@ -115,7 +108,7 @@ async function assignRoleIfEligible(member, userData) {
                 const alreadyHasTier = member.roles.cache.has(tier.id);
     
                 if (!alreadyHasTier) {
-                    const targetChannel = member.guild.channels.cache.get('1241576477116338257');
+                    const targetChannel = member.guild.channels.cache.get(config.welcomeChannelId);
                     if (targetChannel && targetChannel.isTextBased()) {
                         await targetChannel.send(`<@${member.id}> 님이 <@&${tier.id}> 역할로 승급했습니다! 🎉`);
                     }
@@ -159,7 +152,7 @@ client.on('messageCreate', async message => {
     const userCountingName = message.author.username;
 
     const userCountingParams = {
-        TableName: 'DS_userstats',
+        TableName: config.userStateTable,
         Key: { userId: { S: userCountingId } },
     };
 
@@ -168,11 +161,11 @@ client.on('messageCreate', async message => {
 
         if (userData.Item) {
             const updateParams = {
-                TableName: 'DS_userstats',
+                TableName: config.userStateTable,
                 Key: {
                     userId: { S: userCountingId }
                 },
-                UpdateExpression: 'SET userChat = if_not_exists(userChat, :start) + :inc, lastUpdated = :now',
+                UpdateExpression: config.setUserSatatsTable,
                 ExpressionAttributeValues: {
                     ':inc': { N: '1' },
                     ':start': { N: '0' },
@@ -183,7 +176,7 @@ client.on('messageCreate', async message => {
             console.log(`✅ ${userCountingId} userChat +1`);
         } else {
             const putParams = {
-                TableName: 'DS_userstats',
+                TableName: config.userStateTable,
                 Item: {
                     userId: { S: userCountingId },
                     userName: { S: userCountingName },
@@ -221,14 +214,14 @@ client.on('messageCreate', async message => {
 
     // 유저 정보 조회 (DynamoDB)
     const userParams = {
-        TableName: 'DS_User',
+        TableName: config.userTable,
         Key: { userId: { S: userId } },
     };
 
     try {
         // 서버 설정 조회 (채널 제한 확인)
         const serverParams = {
-            TableName: 'DS_Server',
+            TableName: config.serverTable,
             Key: { serverId: { S: message.guild.id } },
         };
         const serverData = await dynamodbClient.send(new GetItemCommand(serverParams));
@@ -310,7 +303,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     const userName = member.user.username;
 
     const userParams = {
-        TableName: 'DS_userstats',
+        TableName: config.userStatsTable,
         Key: { userId: { S: userId } },
     };
 
@@ -322,11 +315,11 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             if (userData.Item) {
                 // 유저 존재 → joinVoice 증가
                 const updateParams = {
-                    TableName: 'DS_userstats',
+                    TableName: config.userStatsTable,
                     Key: {
                         userId: { S: userId }
                     },
-                    UpdateExpression: 'SET joinVoice = if_not_exists(joinVoice, :start) + :inc, lastUpdated = :now',
+                    UpdateExpression: config.setUserStatesTable2,
                     ExpressionAttributeValues: {
                         ':inc': { N: '1' },
                         ':start': { N: '0' },
@@ -338,7 +331,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             } else {
                 // 유저 없으면 신규 등록
                 const putParams = {
-                    TableName: 'DS_userstats',
+                    TableName: config.userStatsTable,
                     Item: {
                         userId: { S: userId },
                         userName: { S: userName },

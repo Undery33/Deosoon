@@ -147,7 +147,7 @@ module.exports = {
       // DynamoDB 저장
       const userId = interaction.user.id;
       const updateParams = {
-        TableName: "DS_User",
+        TableName: config.userTable,
         Key: { userId: { S: userId } },
         UpdateExpression: "SET transLang = :langs, userName = :name",
         ExpressionAttributeValues: {
