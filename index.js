@@ -102,16 +102,11 @@ async function assignRoleIfEligible(member, userData) {
         if (chatCount >= tier.chat || voiceCount >= tier.voice) {
             try {
                 await member.roles.add(tier.id);
+                await member.roles.fetch();
     
-                // 멤버 정보 최신화
-                await member.fetch();
-                const alreadyHasTier = member.roles.cache.has(tier.id);
-    
-                if (!alreadyHasTier) {
-                    const targetChannel = member.guild.channels.cache.get(config.welcomeChannelId);
-                    if (targetChannel && targetChannel.isTextBased()) {
-                        await targetChannel.send(`<@${member.id}> 님이 <@&${tier.id}> 역할로 승급했습니다! 🎉`);
-                    }
+                const targetChannel = member.guild.channels.cache.get(config.welcomeChannelId);
+                if (targetChannel && targetChannel.isTextBased()) {
+                    await targetChannel.send(`<@${member.id}> 님이 <@&${tier.id}> 역할로 승급했습니다! 🎉`);
                 }
             } catch (err) {
                 console.error(`❌ 역할 부여 실패: ${tier.id}`, err);
