@@ -77,7 +77,6 @@ const translateClient = new TranslateClient({
 
 
 async function assignRoleIfEligible(member, userData) {
-
     if (!userData?.Item) {
         console.log('유저 데이터 없음');
         return;
@@ -85,34 +84,36 @@ async function assignRoleIfEligible(member, userData) {
 
     const chatCount = parseInt(userData.Item.userChat?.N ?? '0');
     const voiceCount = parseInt(userData.Item.joinVoice?.N ?? '0');
+    const ROLE_TIERS = config.roleTiers.slice().sort((a, b) => a.chat - b.chat);
 
-    const ROLE_TIERS = config.roleTiers;
+    const currentTierIds = ROLE_TIERS.map(tier => tier.id);
+    const userCurrentTier = ROLE_TIERS.findLast(tier => member.roles.cache.has(tier.id));
+    const eligibleTier = ROLE_TIERS.findLast(tier => chatCount >= tier.chat || voiceCount >= tier.voice);
 
-    const currentRoleIds = ROLE_TIERS.map(t => t.id);
-    const rolesToRemove = member.roles.cache.filter(role => currentRoleIds.includes(role.id));
-    for (const [_, role] of rolesToRemove) {
-        try {
-            await member.roles.remove(role);
-        } catch (err) {
-            console.error(`❌ 역할 제거 실패: ${role.name}`, err);
-        }
+    if (!eligibleTier || (userCurrentTier && userCurrentTier.id === eligibleTier.id)) {
+        console.log(`🚫 승급 조건 미충족 또는 동일 등급 유지 중: ${member.user.username}`);
+        return;
     }
 
-    for (const tier of ROLE_TIERS) {
-        if (chatCount >= tier.chat || voiceCount >= tier.voice) {
-            try {
-                await member.roles.add(tier.id);
-                await member.roles.fetch();
-    
-                const targetChannel = member.guild.channels.cache.get(config.welcomeChannelId);
-                if (targetChannel && targetChannel.isTextBased()) {
-                    await targetChannel.send(`<@${member.id}> 님이 <@&${tier.id}> 역할로 승급했습니다! 🎉`);
-                }
-            } catch (err) {
-                console.error(`❌ 역할 부여 실패: ${tier.id}`, err);
-            }
-            break;
+    try {
+        // 기존 tier 역할 제거
+        const rolesToRemove = member.roles.cache.filter(role => currentTierIds.includes(role.id));
+        for (const [_, role] of rolesToRemove) {
+            await member.roles.remove(role);
         }
+
+        // 새 tier 역할 부여
+        await member.roles.add(eligibleTier.id);
+
+        // 승급 메시지 전송
+        const targetChannel = member.guild.channels.cache.get(config.welcomeChannelId);
+        if (targetChannel && targetChannel.isTextBased()) {
+            await targetChannel.send(`<@${member.id}> 님이 <@&${eligibleTier.id}> 역할로 승급했습니다! 🎉`);
+        }
+
+        console.log(`✅ 역할 승급: ${member.user.username} → ${eligibleTier.name}`);
+    } catch (err) {
+        console.error(`❌ 역할 처리 실패: ${eligibleTier.id}`, err);
     }
 }
 
