@@ -58,8 +58,6 @@ module.exports = {
         { timeZone: "Asia/Seoul" }
       );
 
-      let replyMessage = `${interaction.user}님의 채팅 횟수는 ${chatCount}번, 음성 채팅 접속 횟수는 ${voiceCount}번, 마지막 활동 날짜는 ${lastUpdated}입니다.`;
-
       const scanResult = await dynamodbClient.send(
         new ScanCommand({ TableName: config.userStatsTable })
       );
@@ -76,19 +74,13 @@ module.exports = {
         .sort((a, b) => b.joinVoice - a.joinVoice)
         .slice(0, 3);
 
-      replyMessage += `\n\n💬 채팅 활동 TOP 3`;
-      topChatUsers.forEach((user, index) => {
-        replyMessage += `\n${index + 1}위: ${user.userName} (${
-          user.userChat
-        }회)`;
-      });
+        const topChatStats = topChatUsers
+        .map((user, index) => `${index + 1}위 : ${user.userName} (${user.userChat}회)`)
+        .join("\n");
 
-      replyMessage += `\n\n🎤 음성 채팅 접속 TOP 3`;
-      topVoiceUsers.forEach((user, index) => {
-        replyMessage += `\n${index + 1}위: ${user.userName} (${
-          user.joinVoice
-        }회)`;
-      });
+        const topVoiceStats = topVoiceUsers
+        .map((user, index) => `${index + 1}위 : ${user.userName} (${user.joinVoice}회)`)
+        .join("\n");
 
       const statEmbed = new EmbedBuilder()
         .setColor(0xf1c40f)
@@ -97,11 +89,13 @@ module.exports = {
           { name: `채팅 횟수`, value: `${chatCount}` },
           { name: `음성 채팅 접속 횟수`, value: `${voiceCount}` },
           { name: `마지막 활동 날짜`, value: `${lastUpdated}` },
+          { name: `💬 채팅 활동 TOP 3`, value: topChatStats || "데이터 없음" },
+          { name: `🎤 음성 채팅 접속 TOP 3`, value: topVoiceStats || "데이터 없음" },
         )
       
       await interaction.reply({ embeds: [statEmbed], flags: MessageFlags.Ephemeral, });
     } catch (error) {
-      console.error("🔥 유저 활동 데이터 조회 실패:", error);
+      console.error("🔥 유저 활동 데이터 조회 실패 :", error);
       await interaction.reply("❌ 데이터를 불러오는 중 오류가 발생했습니다.");
     }
   },
