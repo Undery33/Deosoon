@@ -34,7 +34,8 @@ const client = new Client({ intents: [
     GatewayIntentBits.Guilds, 
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildMessages, 
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
 ] });
 
 client.commands = new Collection();
@@ -138,6 +139,53 @@ client.on(Events.InteractionCreate, async interaction => {
         interaction.replied || interaction.deferred
             ? await interaction.followUp(errorMsg)
             : await interaction.reply(errorMsg);
+    }
+});
+
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isStringSelectMenu()) return;
+  if (interaction.customId !== "select-role") return;
+
+  const selectedRoleId = interaction.values[0];
+  const role = interaction.guild.roles.cache.get(selectedRoleId);
+
+  if (!role) {
+    return interaction.reply({
+      content: "해당 역할을 찾을 수 없습니다.",
+      ephemeral: true,
+    });
+  }
+
+  try {
+    await interaction.member.roles.add(role);
+    await interaction.reply({
+      content: `${role.name} 역할이 부여되었습니다!`,
+      ephemeral: true,
+    });
+  } catch (err) {
+    console.error(err);
+    await interaction.reply({
+      content: "역할 부여 중 오류가 발생했습니다.",
+      ephemeral: true,
+    });
+  }
+});
+
+client.on(Events.GuildMemberAdd, async (member) => {
+    // 기본 역할 부여
+    const defaultRoleId = "1364153417911762965";
+
+    const defaultRole = member.guild.roles.cache.get(defaultRoleId);
+    if (!defaultRole) {
+        console.error("❌ 기본 역할을 찾을 수 없습니다.");
+        return;
+    }
+
+    try {
+        await member.roles.add(defaultRole);
+        console.log(`✅ ${member.user.tag}에게 기본 역할을 부여했습니다.`);
+    } catch (error) {
+        console.error("❌ 기본 역할 부여 실패:", error);
     }
 });
 
