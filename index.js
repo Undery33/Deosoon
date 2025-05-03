@@ -220,7 +220,7 @@ client.on('messageCreate', async message => {
             console.log(`✅ ${userCountingId} userChat +1`);
         } else {
             const putParams = {
-                TableName: config.userStateTable,
+                TableName: config.userStatsTable,
                 Item: {
                     userId: { S: userCountingId },
                     userName: { S: userCountingName },
