@@ -1,21 +1,13 @@
-/*
-    유저의 활동량을 확인하는 명령어를 구현합니다.
-    - 채팅 횟수, 음성 채팅 접속 횟수, 마지막 활동 날짜를 확인합니다.
-    - 활동량 TOP 3를 표시합니다.
-*/
 const {
   SlashCommandBuilder,
   EmbedBuilder,
   MessageFlags,
 } = require("discord.js");
-
-// AWS DynamoDB 연결
 const {
   DynamoDBClient,
   GetItemCommand,
   ScanCommand,
 } = require("@aws-sdk/client-dynamodb");
-
 const config = require("../../config.json");
 
 const dynamodbClient = new DynamoDBClient({
@@ -55,27 +47,6 @@ module.exports = {
         return await interaction.reply("⚠️ 활동 데이터가 존재하지 않습니다.");
       }
 
-      // // 채팅 횟수 기준으로 정렬
-      // const sortedByChat = [...allUsers].sort(
-      //   (a, b) => b.userChat - a.userChat
-      // );
-      // // 음성 접속 기준으로 정렬
-      // const sortedByVoice = [...allUsers].sort(
-      //   (a, b) => b.joinVoice - a.joinVoice
-      // );
-
-      // // 본인 채팅 순위 찾기
-      // const userChatRank =
-      //   sortedByChat.findIndex(
-      //     (user) => user.userName === (data.Item.userName?.S ?? "Unknown")
-      //   ) + 1;
-
-      // // 본인 음성 순위 찾기
-      // const userVoiceRank =
-      //   sortedByVoice.findIndex(
-      //     (user) => user.userName === (data.Item.userName?.S ?? "Unknown")
-      //   ) + 1;
-
       const chatCount = data.Item.userChat?.N ?? "0";
       const voiceCount = data.Item.joinVoice?.N ?? "0";
       const lastUpdated = new Date(data.Item.lastUpdated?.S).toLocaleString(
@@ -83,6 +54,7 @@ module.exports = {
         { timeZone: "Asia/Seoul" }
       );
 
+      // 모든 사용자 정보 스캔
       const scanResult = await dynamodbClient.send(
         new ScanCommand({ TableName: config.userStatsTable })
       );
@@ -93,7 +65,6 @@ module.exports = {
         joinVoice: parseInt(item.joinVoice?.N ?? "0"),
       }));
 
-      // 채팅/음성 정렬
       const sortedByChat = [...allUsers].sort(
         (a, b) => b.userChat - a.userChat
       );
@@ -101,29 +72,21 @@ module.exports = {
         (a, b) => b.joinVoice - a.joinVoice
       );
 
-      // 본인 userId로 찾기
       const userChatRank =
         sortedByChat.findIndex((user) => user.userId === userId) + 1;
       const userVoiceRank =
         sortedByVoice.findIndex((user) => user.userId === userId) + 1;
 
-      const topChatUsers = [...allUsers]
-        .sort((a, b) => b.userChat - a.userChat)
-        .slice(0, 3);
-      const topVoiceUsers = [...allUsers]
-        .sort((a, b) => b.joinVoice - a.joinVoice)
-        .slice(0, 3);
-
       const medals = ["🥇", "🥈", "🥉"];
-
-      const topChatStats = topChatUsers
+      const topChatStats = sortedByChat
+        .slice(0, 3)
         .map(
           (user, index) =>
             `${medals[index]} ${user.userName} (${user.userChat}회)`
         )
         .join("\n");
-
-      const topVoiceStats = topVoiceUsers
+      const topVoiceStats = sortedByVoice
+        .slice(0, 3)
         .map(
           (user, index) =>
             `${medals[index]} ${user.userName} (${user.joinVoice}회)`
@@ -136,7 +99,7 @@ module.exports = {
         .addFields(
           { name: `채팅 횟수`, value: `${chatCount}` },
           { name: `음성 채팅 접속 횟수`, value: `${voiceCount}` },
-          { name: `마지막 활동 날짜`, value: `${lastUpdated}` },
+          { name: `마지막 활동 날짜`, value: `${lastUpdated}` }
         );
 
       const statRankingEmbed = new EmbedBuilder()
@@ -153,7 +116,7 @@ module.exports = {
             value: topVoiceStats || "데이터 없음",
             inline: true,
           },
-          { name: `\u200B`, value: `` },
+          { name: `\u200B`, value: `\u200B` },
           {
             name: `📊 나의 채팅 순위`,
             value: `${userChatRank}위`,
@@ -166,12 +129,62 @@ module.exports = {
           }
         );
 
+      // ✅ 번역 설정 조회 (transLang 및 transOnOff)
+      const translateParams = {
+        TableName: config.userTable,
+        Key: {
+          userId: { S: userId },
+        },
+      };
+
+      let translateEmbed;
+      try {
+        const translateData = await dynamodbClient.send(
+          new GetItemCommand(translateParams)
+        );
+
+        const hasTransLang =
+          translateData.Item?.transLang?.M?.source?.S &&
+          translateData.Item?.transLang?.M?.target?.S;
+
+        const enabled = translateData.Item?.transOnOff?.BOOL ?? false;
+
+        if (hasTransLang) {
+          const sourceLang = translateData.Item.transLang.M.source.S;
+          const targetLang = translateData.Item.transLang.M.target.S;
+
+          translateEmbed = new EmbedBuilder()
+            .setColor(0x2ecc71)
+            .setTitle("🈶 번역 설정")
+            .addFields(
+              { name: "입력 언어", value: sourceLang, inline: true },
+              { name: "출력 언어", value: targetLang, inline: true },
+              {
+                name: "번역 활성화",
+                value: enabled ? "✅ 활성화됨" : "❌ 비활성화됨",
+                inline: true,
+              }
+            );
+        } else {
+          translateEmbed = new EmbedBuilder()
+            .setColor(0xe67e22)
+            .setTitle("❗ 번역 설정 정보 없음")
+            .setDescription("이 유저의 번역 설정 데이터가 없습니다.");
+        }
+      } catch (translateError) {
+        console.error("🔥 번역 설정 조회 실패:", translateError);
+        translateEmbed = new EmbedBuilder()
+          .setColor(0xe74c3c)
+          .setTitle("❌ 번역 설정 조회 실패")
+          .setDescription("데이터를 불러오는 중 오류가 발생했습니다.");
+      }
+
       await interaction.reply({
-        embeds: [statEmbed, statRankingEmbed],
+        embeds: [statEmbed, statRankingEmbed, translateEmbed],
         flags: MessageFlags.Ephemeral,
       });
     } catch (error) {
-      console.error("🔥 유저 활동 데이터 조회 실패 :", error);
+      console.error("🔥 유저 활동 데이터 조회 실패:", error);
       await interaction.reply("❌ 데이터를 불러오는 중 오류가 발생했습니다.");
     }
   },
