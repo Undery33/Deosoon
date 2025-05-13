@@ -3,11 +3,13 @@ const {
   EmbedBuilder,
   MessageFlags,
 } = require("discord.js");
+
 const {
   DynamoDBClient,
   GetItemCommand,
   ScanCommand,
 } = require("@aws-sdk/client-dynamodb");
+
 const config = require("../../config.json");
 
 const dynamodbClient = new DynamoDBClient({
@@ -18,17 +20,20 @@ const dynamodbClient = new DynamoDBClient({
   },
 });
 
+// 언어 코드 → 언어 이름 매핑
+const languageNameMap = {
+  ko: "Korean",
+  ja: "Japanese",
+  en: "English",
+  zh: "Chinese",
+  "zh-CN": "Chinese (Simplified)",
+  "zh-TW": "Chinese (Traditional)",
+};
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("check-stats")
-    .setDescription("본인의 현재 활동량을 확인합니다.")
-    .setDescriptionLocalizations({
-      "en-US": "Check your current activity.",
-      "en-GB": "Check your current activity.",
-      "ja": "現在の活動量を確認します。",
-      "zh-CN": "检查您当前的活动量。",
-      "zh-TW": "檢查您當前的活動量。",
-    }),
+    .setDescription("본인의 현재 활동량을 확인합니다."),
 
   async execute(interaction) {
     const userId = interaction.user.id;
@@ -54,7 +59,6 @@ module.exports = {
         { timeZone: "Asia/Seoul" }
       );
 
-      // 모든 사용자 정보 스캔
       const scanResult = await dynamodbClient.send(
         new ScanCommand({ TableName: config.userStatsTable })
       );
@@ -65,28 +69,27 @@ module.exports = {
         joinVoice: parseInt(item.joinVoice?.N ?? "0"),
       }));
 
-      const sortedByChat = [...allUsers].sort(
-        (a, b) => b.userChat - a.userChat
-      );
-      const sortedByVoice = [...allUsers].sort(
-        (a, b) => b.joinVoice - a.joinVoice
-      );
+      const sortedByChat = [...allUsers].sort((a, b) => b.userChat - a.userChat);
+      const sortedByVoice = [...allUsers].sort((a, b) => b.joinVoice - a.joinVoice);
 
       const userChatRank =
         sortedByChat.findIndex((user) => user.userId === userId) + 1;
       const userVoiceRank =
         sortedByVoice.findIndex((user) => user.userId === userId) + 1;
 
+      const topChatUsers = [...sortedByChat].slice(0, 3);
+      const topVoiceUsers = [...sortedByVoice].slice(0, 3);
+
       const medals = ["🥇", "🥈", "🥉"];
-      const topChatStats = sortedByChat
-        .slice(0, 3)
+
+      const topChatStats = topChatUsers
         .map(
           (user, index) =>
             `${medals[index]} ${user.userName} (${user.userChat}회)`
         )
         .join("\n");
-      const topVoiceStats = sortedByVoice
-        .slice(0, 3)
+
+      const topVoiceStats = topVoiceUsers
         .map(
           (user, index) =>
             `${medals[index]} ${user.userName} (${user.joinVoice}회)`
@@ -116,7 +119,7 @@ module.exports = {
             value: topVoiceStats || "데이터 없음",
             inline: true,
           },
-          { name: `\u200B`, value: `\u200B` },
+          { name: `\u200B`, value: `` },
           {
             name: `📊 나의 채팅 순위`,
             value: `${userChatRank}위`,
@@ -129,7 +132,6 @@ module.exports = {
           }
         );
 
-      // ✅ 번역 설정 조회 (transLang 및 transOnOff)
       const translateParams = {
         TableName: config.userTable,
         Key: {
@@ -143,16 +145,15 @@ module.exports = {
           new GetItemCommand(translateParams)
         );
 
-        const hasTransLang =
-          translateData.Item?.transLang?.M?.source?.S &&
-          translateData.Item?.transLang?.M?.target?.S;
-
+        const hasTransLang = translateData.Item?.transLang?.M;
+        const sourceCode = hasTransLang?.source?.S;
+        const targetCode = hasTransLang?.target?.S;
         const enabled = translateData.Item?.transOnOff?.BOOL ?? false;
 
-        if (hasTransLang) {
-          const sourceLang = translateData.Item.transLang.M.source.S;
-          const targetLang = translateData.Item.transLang.M.target.S;
+        const sourceLang = languageNameMap[sourceCode] ?? sourceCode ?? "N/A";
+        const targetLang = languageNameMap[targetCode] ?? targetCode ?? "N/A";
 
+        if (hasTransLang) {
           translateEmbed = new EmbedBuilder()
             .setColor(0x2ecc71)
             .setTitle("🈶 번역 설정")
@@ -184,7 +185,7 @@ module.exports = {
         flags: MessageFlags.Ephemeral,
       });
     } catch (error) {
-      console.error("🔥 유저 활동 데이터 조회 실패:", error);
+      console.error("🔥 유저 활동 데이터 조회 실패 :", error);
       await interaction.reply("❌ 데이터를 불러오는 중 오류가 발생했습니다.");
     }
   },
