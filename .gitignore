@@ -2,7 +2,7 @@
 node_modules/
 
 # 환경 변수 및 인증 정보
-.env
+*.env
 .env.*          # 확장된 환경 설정
 
 # Discord 봇 토큰, 민감 정보 파일
