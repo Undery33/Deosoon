@@ -92,7 +92,6 @@ async function assignRoleIfEligible(member, userData) {
     const eligibleTier = ROLE_TIERS.findLast(tier => chatCount >= tier.chat || voiceCount >= tier.voice);
 
     if (!eligibleTier || (userCurrentTier && userCurrentTier.id === eligibleTier.id)) {
-        console.log(`🚫 승급 조건 미충족 또는 동일 등급 유지 중: ${member.user.username}`);
         return;
     }
 
@@ -328,8 +327,6 @@ client.on('messageCreate', async message => {
                     console.error('번역 요청 오류:', translateError);
                     await message.reply('번역 중 오류가 발생했습니다. 다시 시도해 주세요.');
                 }
-            } else {
-                console.log(`번역 비활성화 유저: ${message.author.username}`);
             }
         } else {
             console.error('유저 데이터 없음');
