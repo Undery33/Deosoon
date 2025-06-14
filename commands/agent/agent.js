@@ -53,7 +53,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const text = interaction.options.getString("talk");
+    const text = interaction.options.getString("say");
     const userId = interaction.user.id;
 
     // 모두에게 공개되는 메시지(비공개 플래그 제거)
@@ -62,7 +62,7 @@ module.exports = {
     try {
       // 1. 의도 판별
       const intentPrompt = `
-너는 사용자의 Discord 서버 활동을 도와주는 봇이다.
+너는 사용자의 Discord 서버 활동을 도와주는 언더순이라는 봇이다.
 아래와 같이 사용자의 질문 유형을 판별해라.
 
 - 만약 질문이 '본인의 티어'만 궁금한 의도라면 "TIER_QUERY"만 출력해.
