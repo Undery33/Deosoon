@@ -53,7 +53,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const text = interaction.options.getString("input");
+    const text = interaction.options.getString("talk");
     const userId = interaction.user.id;
 
     // 모두에게 공개되는 메시지(비공개 플래그 제거)
