@@ -1,5 +1,3 @@
-// index.js
-
 // 필수 모듈 및 외부 라이브러리
 const fs = require('node:fs');
 const path = require('node:path');
@@ -16,7 +14,7 @@ let config;
 try {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 } catch (err) {
-    console.error('Config 파일을 읽는 도중 오류가 발생했습니다:', err);
+    console.error('Config 파일을 읽는 도중 오류가 발생했습니다');
     process.exit(1);
 }
 
@@ -141,24 +139,31 @@ client.on(Events.InteractionCreate, async interaction => {
         try {
             await command.execute(interaction);
         } catch (err) {
-            console.error('명령어 실행 중 오류:', err);
+            console.error('명령어 실행 중 오류');
             const msg = { content:'명령어 실행 중 오류가 발생했습니다.', ephemeral:true };
-            interaction.replied||interaction.deferred
+            interaction.replied || interaction.deferred
                 ? await interaction.followUp(msg)
                 : await interaction.reply(msg);
         }
-    } else if (interaction.isStringSelectMenu() && interaction.customId==='select-role') {
+    } else if (interaction.isStringSelectMenu() && interaction.customId === 'select-role') {
         const role = interaction.guild.roles.cache.get(interaction.values[0]);
-        if (!role) return interaction.reply({ content:'해당 역할을 찾을 수 없습니다.', ephemeral:true });
+        if (!role) {
+            return interaction.reply({ content: '해당 역할을 찾을 수 없습니다.', ephemeral: true });
+        }
         try {
+            // 역할 부여
             await interaction.member.roles.add(role);
-            await interaction.reply({ content:`${role.name} 역할이 부여되었습니다!`, ephemeral:true });
+
+            const welcomeChannel = interaction.guild.channels.cache.get(config.welcomeChannelId);
+            if (welcomeChannel?.isTextBased()) {
+            await welcomeChannel.send(`${interaction.member}님이 ${role.name} 역할로 승급했습니다! 🎉`);
+            }
         } catch (err) {
-            console.error(err);
-            await interaction.reply({ content:'역할 부여 중 오류가 발생했습니다.', ephemeral:true });
+            console.error('역할 부여 중 오류');
         }
     }
 });
+
 
 // 길드 가입 시 기본 역할 부여
 client.on(Events.GuildMemberAdd, async member => {
@@ -171,69 +176,91 @@ client.on(Events.GuildMemberAdd, async member => {
     }
 });
 
-// 메시지 처리
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
-    if (!message.guild || message.guild.id!==config.guildId) return;
 
-    // 통계 업데이트 & 역할 승급
-    await upsertUserStat(message.author.id, message.author.username, 'userChat');
-    const data = await dynamodbClient.send(new GetItemCommand({
-        TableName: config.userStatsTable,
-        Key:{ userId:{ S:message.author.id }}
-    }));
-    await assignRoleIfEligible(await message.guild.members.fetch(message.author.id), data);
+    // 통계 업데이트 & 역할 승급 (엉덩리 서버에서만)
+    if (message.guild?.id === config.guildId) {
+        await upsertUserStat(
+            message.author.id,
+            message.author.username,
+            'userChat'
+        );
+        const data = await dynamodbClient.send(new GetItemCommand({
+            TableName: config.userStatsTable,
+            Key: { userId: { S: message.author.id } }
+        }));
+        await assignRoleIfEligible(
+            await message.guild.members.fetch(message.author.id),
+            data
+        );
+    }
 
-    // 번역 로직
-    if (message.content.startsWith('[Translated]')) return;
-    if (message.stickers.size>0) return;
-    if ([...message.attachments.values()].every(a=>['image/','video/','audio/'].some(t=>a.contentType?.startsWith(t)))) return;
-    const onlyEmojis = message.content.trim().match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic}|\s)+$/u);
+    // 번역 로직 초기 필터링
+    if (message.content.startsWith('[Translated]')) return; // 번역 시 [Translated]가 붙는 현상 해결
+    if (message.stickers.size > 0) return; // Discord 스티커 사용 시 패스
+    // 이미지, 비디오, 오디오일 시 번역 수행 패스
+    if (message.attachments.size > 0 &&
+    [...message.attachments.values()].every(a =>
+        ['image/', 'video/', 'audio/'].some(t => a.contentType?.startsWith(t))
+    )
+    ) return;
+    // 이모지 사용 시 패스
+    const onlyEmojis = message.content.trim().match(
+        /^(\p{Emoji_Presentation}|\p{Extended_Pictographic}|\s)+$/u
+    );
+    const customEmojiRegex = /<a?:\w+:\d+>/;
+    if (customEmojiRegex.test(message.content)) return;
     if (onlyEmojis) return;
+    // 링크 사용 시 패스
+    const urlRegex = /https?:\/\/[^\s]+/;
+    if (urlRegex.test(message.content)) return;
 
     // 채널 제한 확인
-    try {
+    if (message.guild) {
         const serverData = await dynamodbClient.send(new GetItemCommand({
             TableName: config.serverTable,
-            Key:{ serverId:{ S:message.guild.id }}
+            Key: { serverId: { S: message.guild.id } }
         }));
-        const allowed = serverData.Item?.chattingID?.L?.map(x=>x.S) || [];
+        const allowed = serverData.Item?.chattingID?.L?.map(x => x.S) || [];
         if (!allowed.includes(message.channel.id)) return;
-    } catch (err) {
-        console.error('Server 테이블 조회 오류:', err);
-        return;
     }
 
-    // 번역 설정 조회
-    let userData;
+
+    // 유저 번역 설정 조회 및 실행
     try {
-        userData = await dynamodbClient.send(new GetItemCommand({
+        const userData = await dynamodbClient.send(new GetItemCommand({
             TableName: config.userTable,
-            Key:{ userId:{ S:message.author.id }}
+            Key: { userId: { S: message.author.id } }
         }));
-    } catch (err) {
-        console.error('유저 테이블 조회 오류:', err);
-        return;
-    }
-    if (userData.Item?.transOnOff?.BOOL) {
-        let src = userData.Item.transLang.M.source.S;
-        let tgt = userData.Item.transLang.M.target.S;
-        src = languageMap[src]||src; tgt = languageMap[tgt]||tgt;
+        if (!userData.Item.transOnOff.BOOL) return;
+
+        const src = userData.Item.transLang.M.source.S; // 입력 언어
+        const tgt = userData.Item.transLang.M.target.S; // 출력 언어
+
+        const mappedSrc = languageMap[src] || src;
+        const mappedTgt = languageMap[tgt] || tgt;
         const text = [...message.mentions.users.values()].reduce(
-            (t,u)=>t.replaceAll(`<@${u.id}>`, `@${u.username}`).replaceAll(`<@!${u.id}>`, `@${u.username}`),
+            (t, u) =>
+                t.replaceAll(`<@${u.id}>`, `@${u.username}`)
+                 .replaceAll(`<@!${u.id}>`, `@${u.username}`),
             message.content
         );
-        try {
-            const res = await translateClient.send(new TranslateTextCommand({
+
+        // AWS Translate
+        const res = await translateClient.send(
+            new TranslateTextCommand({
                 Text: text,
-                SourceLanguageCode: src,
-                TargetLanguageCode: tgt
-            }));
-            await message.reply(res.TranslatedText);
-        } catch (err) {
-            console.error('번역 오류:', err);
-            await message.reply('번역 중 오류가 발생했습니다.');
-        }
+                SourceLanguageCode: mappedSrc,
+                TargetLanguageCode: mappedTgt
+            })
+        );
+        
+        // 번역 결과 출력
+        await message.reply(res.TranslatedText);
+
+    } catch (err) {
+        console.error('▶ 번역 또는 유저 조회 오류');
     }
 });
 
