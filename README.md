@@ -84,15 +84,19 @@ npm install discord.js @aws-sdk/client-dynamodb @aws-sdk/client-translate
 ### 다음과 같이 봇이 응답하면 설정 완료입니다.
 
 * /chat을 이용한 대화 예시
+
 ![EX1_chat](./docs/execution_1.png)
 
 * 일정 활동량을 넘었을 시
+
 ![EX2_ruleupdate](./docs/execution_2.png)
 
 * 번역이 수행되었을 시 결과(실제 사용 결과)
+
 ![EX3_translate](./docs/execution_3.png)
 
 * 번역 설정 화면
+
 ![EX4_setting](./docs/execution_4.png)
 
 ---
