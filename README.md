@@ -60,7 +60,8 @@ npm install discord.js @aws-sdk/client-dynamodb @aws-sdk/client-translate
 
 ### AWS 리소스
 - 해당 DB는 DynamoDB로 실행되기 때문에 본인이 직접 설정을 하여야 합니다.
-- `index.js` 내 코드에서 수정을 해주세요.
+- `index.js` 내 코드에서 수정을 해주세요. (보안 이슈와 설정 변경이 쉽도록 변수는 config에 설정해두었습니다.)
+
 
 ---
 
@@ -79,6 +80,23 @@ npm install discord.js @aws-sdk/client-dynamodb @aws-sdk/client-translate
 
 ---
 
+## 😃 실행 결과 예시
+### 다음과 같이 봇이 응답하면 설정 완료입니다.
+
+* /chat을 이용한 대화 예시
+![EX1_chat](./docs/execution_1.png)
+
+* 일정 활동량을 넘었을 시
+![EX2_ruleupdate](./docs/execution_2.png)
+
+* 번역이 수행되었을 시 결과(실제 사용 결과)
+![EX3_translate](./docs/execution_3.png)
+
+* 번역 설정 화면
+![EX4_setting](./docs/execution_4.png)
+
+---
+
 ## 📬 참여 방법
 
 더순 개발에 함께하고 싶거나, 아이디어가 있다면  
@@ -89,6 +107,6 @@ Undery(디스코드 서버:`https://discord.gg/ungdengri`)로 DM 바랍니다.
 ## 📌 기타
 
 - 프로젝트는 공개 저장소를 기준으로 유지됩니다.
-- GPT 자아 기능은 테스트 후 점진적으로 제한된 유저에게 배포됩니다.
+- GPT 자아 기능은 현재 개인 서버에서만 운영됩니다.
 - 번역 데이터는 저장하지 않으며 실시간 처리만 수행합니다.
 
