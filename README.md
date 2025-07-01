@@ -1,8 +1,8 @@
 # 더수니 봇 프로젝트
-### AWS Translate와 AWS DynamoDB를 통한 번역과 역할 관리 디스코드 봇
+### AWS를 통한 번역과 역할 관리, 그리고 대화가 가능한 디스코드 챗봇
 ![Deosoon AI Picture](./docs/Deosoon_AI.png)
 
-> **"제가 여러분들을 위해 통역해드릴게요. 물론 활동 많으면 더 좋겠죠?"**
+> **"나랑 대화하고 싶어? 미안한데 사적인 자리에선 별로야❤️"**
 
 ---
 
@@ -18,9 +18,9 @@
 - 유저 채팅 활동 횟수를 기록하여 일정 기준 이상 시 자동 역할 부여
 - 장기간 활동량 미달 시 역할 회수 또는 하향 조정
 
-### 3. GPT 기반 ‘더순 자아’ 기능 (예정)
-- 특정 후원자 또는 Flex 역할 보유자에게만 제공
-- OpenAI ChatGPT API를 통해 자아 기능 구현 (예정)
+### 3. GPT-4o 기반 ‘더순 챗봇’ 기능
+- 메스가키 성격의 캐릭터로 생성
+- OpenAI ChatGPT API를 통해 챗봇 구현
 
 ---
 
@@ -30,7 +30,7 @@
 |-----------|-----------|
 | **프론트엔드 (UI)** | Discord.js (Slash Command 기반) |
 | **백엔드** | Node.js, Discord.js |
-| **API 연동** | Discord API, AWS Translate, OpenAI API (선택적) |
+| **API 연동** | Discord API, AWS Translate, OpenAI API(GPT-4o)|
 | **데이터베이스** | AWS DynamoDB |
 | **서버** | AWS EC2, AWS Lambda (일부 기능 REST 처리용) |
 | **배포 및 코드 관리** | GitHub |
@@ -40,7 +40,7 @@
 ## 🤖 실행 방법
 
 ### Node.js 모듈 설치
-- Node.js(22.0 이상)를 이용하여 개발하였으며, 아래 코드를 cmd에 입력하여 설치합니다.
+- Node.js(22.0 이상)를 이용하여 개발하였으며, 아래 패키지를 설치하셔야 합니다.
 ```cmd
 npm install discord.js @aws-sdk/client-dynamodb @aws-sdk/client-translate
 ```

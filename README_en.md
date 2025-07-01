@@ -1,26 +1,26 @@
 # Deosoon Bot Project
-### Discord Bot for Translation and Role Management using AWS Translate and AWS DynamoDB
+### A Discord chatbot capable of translation, role management, and chatting using AWS
 ![Deosoon AI Picture](./docs/Deosoon_AI.png)
 
-> **"I’ll interpret for you all. And of course, it’s better if you’re more active, right?"**
+> **"Wanna talk with me? Sorry, but I'm not really into private conversations ❤️"**
 
 ---
 
 ## 🧠 Main Features
 
 ### 1. Real-time Translation Based on Chat
-- Set input/output languages via Slash Commands
-- Save user-specific translation settings to DynamoDB
+- Configure input/output languages via Slash Commands
+- Save user-specific translation settings in DynamoDB
 - Perform real-time translation using AWS Translate API
-- If no user settings exist, translation is skipped
+- No translation is performed for users without settings
 
-### 2. Assign Roles Based on Activity
-- Record user chat activity count and automatically assign roles when exceeding certain thresholds
+### 2. Role Assignment Based on User Activity
+- Record user chat activity counts and automatically assign roles if exceeding a certain threshold
 - Revoke or downgrade roles if user activity remains low for a long period
 
-### 3. GPT-based “Deosoon Persona” Feature (Planned)
-- Provided only to specific supporters or users with the Flex role
-- To be implemented using OpenAI ChatGPT API (planned)
+### 3. GPT-4o Based “Deosoon Chatbot” Feature
+- Character designed with a mischievous, teasing personality (“mesugaki” style)
+- Implemented via OpenAI ChatGPT API
 
 ---
 
@@ -30,7 +30,7 @@
 |-----------|-----------------|
 | **Frontend (UI)** | Discord.js (Slash Command based) |
 | **Backend** | Node.js, Discord.js |
-| **API Integration** | Discord API, AWS Translate, OpenAI API (optional) |
+| **API Integration** | Discord API, AWS Translate, OpenAI API (GPT-4o) |
 | **Database** | AWS DynamoDB |
 | **Server** | AWS EC2, AWS Lambda (for some REST functions) |
 | **Deployment & Code Management** | GitHub |

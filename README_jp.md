@@ -1,8 +1,8 @@
 # Deosoon Bot プロジェクト
-### AWS TranslateとAWS DynamoDBを使った翻訳・役割管理Discordボット
+### AWSを活用した翻訳、役割管理、そして会話ができるDiscordチャットボット
 ![Deosoon AI Picture](./docs/Deosoon_AI.png)
 
-> **「みなさんのために通訳してあげますよ。もちろん、たくさん活動してくれたほうがいいですよね？」**
+> **「私とおしゃべりしたいの？ごめんね、プライベートな場ではあまり乗り気じゃないの❤️」**
 
 ---
 
@@ -11,16 +11,16 @@
 ### 1. チャットベースのリアルタイム翻訳
 - Slash Commandで入力言語／出力言語を設定
 - ユーザーごとの翻訳設定をDynamoDBに保存
-- AWS Translate APIを使ってリアルタイム翻訳を実行
-- 設定がないユーザーには翻訳を実行しない
+- AWS Translate APIを利用してリアルタイム翻訳を実行
+- 設定のないユーザーには翻訳を行わない
 
-### 2. アクティビティに基づく役割付与
-- ユーザーのチャットアクティビティ回数を記録し、一定基準を超えると自動で役割を付与
+### 2. ユーザー活動量に基づく役割付与
+- ユーザーのチャット活動回数を記録し、一定基準を超えると自動的に役割を付与
 - 長期間活動が少ない場合は役割を剥奪または降格
 
-### 3. GPTベースの「Deosoon自我」機能（予定）
-- 特定の支援者またはFlex役割保有者のみ利用可能
-- OpenAI ChatGPT APIを通じて自我機能を実装予定
+### 3. GPT-4oベースの「デオスンチャットボット」機能
+- 「メスガキ」風の性格でキャラクターを生成
+- OpenAI ChatGPT APIを通じてチャットボットを実装
 
 ---
 
@@ -28,9 +28,9 @@
 
 | コンポーネント | 使用技術 |
 |---------------|----------|
-| **フロントエンド（UI）** | Discord.js (Slash Command ベース) |
+| **フロントエンド（UI）** | Discord.js (Slash Commandベース) |
 | **バックエンド** | Node.js, Discord.js |
-| **API連携** | Discord API, AWS Translate, OpenAI API（オプション） |
+| **API連携** | Discord API, AWS Translate, OpenAI API (GPT-4o) |
 | **データベース** | AWS DynamoDB |
 | **サーバー** | AWS EC2, AWS Lambda（一部REST処理用） |
 | **デプロイ・コード管理** | GitHub |
