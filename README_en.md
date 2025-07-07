@@ -21,6 +21,7 @@
 ### 3. GPT-4o Based “Deosoon Chatbot” Feature
 - Character designed with a mischievous, teasing personality (“mesugaki” style)
 - Implemented via OpenAI ChatGPT API
+- Able to check personal activity through the chatbot using an Agent
 
 ---
 
