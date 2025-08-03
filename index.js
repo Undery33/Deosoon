@@ -85,7 +85,7 @@ async function assignRoleIfEligible(member, userData) {
         // 환영 채널에 메시지
         const channel = member.guild.channels.cache.get(config.welcomeChannelId);
         if (channel?.isTextBased()) {
-            await channel.send(`<@${member.id}> 님이 ${eligibleTier.name} 역할로 승급했습니다! 🎉`);
+            await channel.send(`${member.displayName} 님이 ${eligibleTier.name} 역할로 승급했습니다! 🎉`);
         }
     } catch (err) {
         console.error('역할 처리 실패:', err);
