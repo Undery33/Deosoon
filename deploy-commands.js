@@ -1,5 +1,8 @@
 const { REST, Routes } = require('discord.js');
-const { clientId, guildId, token } = require('./config.json');
+// 설정 로딩 (환경변수 우선, config.json 폴백)
+const configLoader = require('./config/configLoader');
+const config = configLoader.get();
+const { clientId, guildId, token } = config;
 const fs = require('node:fs');
 const path = require('node:path');
 

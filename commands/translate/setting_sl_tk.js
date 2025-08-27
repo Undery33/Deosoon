@@ -13,6 +13,7 @@ const {
   ComponentType,
   MessageFlags,
 } = require("discord.js");
+const { MessageUtils } = require('../../utils/logger');
 
 // AWS DynamoDB 연결
 const {
@@ -182,13 +183,22 @@ module.exports = {
         "zh-TW": `✅ 輸入語言 : ${selectedInputLanguage}\n✅ 輸出語言 : ${selectedOutputLanguage}`,
       };
 
-      await i.update({
+      const finalReply = await i.update({
         content:
           finalMessage[lang] ??
           `✅ **입력 언어 :** ${selectedInputLanguage}\n✅ **출력 언어 : **${selectedOutputLanguage}`,
         components: [],
         flags: MessageFlags.Ephemeral,
       });
+      
+      // 3초 후 삭제
+      setTimeout(async () => {
+        try {
+          await finalReply.delete();
+        } catch (deleteError) {
+          console.debug('번역 설정 완료 메시지 삭제 실패 (무시됨):', deleteError.message);
+        }
+      }, 3000);
     });
   },
 };

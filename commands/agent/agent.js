@@ -1,4 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
+const { MessageUtils } = require('../../utils/logger');
 const OpenAI = require("openai");
 const config = require("../../config.json");
 const { DynamoDBClient, GetItemCommand } = require("@aws-sdk/client-dynamodb");
