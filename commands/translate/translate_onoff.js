@@ -11,6 +11,7 @@ const {
   ButtonStyle,
   MessageFlags,
 } = require("discord.js");
+const { MessageUtils } = require('../../utils/logger');
 
 // AWS DynamoDB 연결
 const {
@@ -93,18 +94,32 @@ module.exports = {
 
       try {
         await dynamodbClient.send(command);
-        await i.reply({
+        const reply = await i.reply({
           content: isOn
             ? "실시간 번역이 활성화되었습니다."
             : "실시간 번역이 비활성화되었습니다.",
           ephemeral: true,
         });
+        setTimeout(async () => {
+          try {
+            await reply.delete();
+          } catch (deleteError) {
+            console.debug('번역 설정 메시지 삭제 실패 (무시됨):', deleteError.message);
+          }
+        }, 3000);
       } catch (err) {
         console.error("DynamoDB 업데이트 실패:", err);
-        await i.reply({
+        const errorReply = await i.reply({
           content: "설정 저장 중 오류가 발생했습니다.",
           ephemeral: true,
         });
+        setTimeout(async () => {
+          try {
+            await errorReply.delete();
+          } catch (deleteError) {
+            console.debug('번역 설정 오류 메시지 삭제 실패 (무시됨):', deleteError.message);
+          }
+        }, 3000);
       }
 
       collector.stop();
