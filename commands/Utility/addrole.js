@@ -19,54 +19,19 @@ module.exports = {
         .setMinValues(0)
         .setMaxValues(12)
         .addOptions([
-          {
-            label: "HOYO",
-            value: "1241611849032667216",
-          },
-          {
-            label: "Rainbow Six",
-            value: "1341734133600096266",
-          },
-          {
-            label: "Battlefield V",
-            value: "1322526183115456594",
-          },
-          {
-            label: "Lost Ark",
-            value: "1241612083372490814",
-          },
-          {
-            label: "Minecraft",
-            value: "1241612044365467759",
-          },
-          {
-            label: "NIKKE",
-            value: "1241611985649401958",
-          },
-          {
-            label: "PUBG",
-            value: "1241612122618593343",
-          },
-          {
-            label: "Overwatch",
-            value: "1365224550589140992",
-          },
-          {
-            label: "Valorant",
-            value: "1241611683366047834",
-          },
-          {
-            label: "Wuthering Waves",
-            value: "1244981585623912469",
-          },
-          {
-            label: "Delta Force",
-            value: "1351495039745916998",
-          },
-          {
-            label: "DNF",
-            value: "1251493567147540582",
-          },
+          { label: "Valorant", value: "1241611683366047834" },
+          { label: "Minecraft", value: "1241612044365467759" },
+          { label: "Hoyo", value: "1241611849032667216" },
+          { label: "Rhythm", value: "1384818040637755394" },
+          { label: "Maple", value: "1387499950027444386" },
+          { label: "Rainbow Six", value: "1341734133600096266" },
+          { label: "Battlefield V", value: "1322526183115456594" },
+          { label: "Fate Trigger", value: "1407490619386892380" },
+          { label: "Lost Ark", value: "1241612083372490814" },
+          { label: "PUBG", value: "1241612122618593343" },
+          { label: "Wuthering Waves", value: "1244981585623912469" },
+          { label: "Delta Force", value: "1351495039745916998" },
+          { label: "DNF", value: "1251493567147540582" }
         ])
     );
     await interaction.reply({
