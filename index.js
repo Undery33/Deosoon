@@ -2,15 +2,29 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, GatewayIntentBits, Events, Collection } = require('discord.js');
-const { 
-    DynamoDBClient, 
+const {
+    DynamoDBClient,
     GetItemCommand,
     PutItemCommand,
     UpdateItemCommand
 } = require('@aws-sdk/client-dynamodb');
 const { TranslateClient, TranslateTextCommand } = require('@aws-sdk/client-translate');
+const { PollyClient, SynthesizeSpeechCommand } = require('@aws-sdk/client-polly')
+const { spawn } = require('child_process');
+const prism = require('prism-media');
+const ffmpegPath = require('ffmpeg-static');
+const {
+    joinVoiceChannel,
+    createAudioPlayer,
+    createAudioResource,
+    NoSubscriberBehavior,
+    StreamType,
+    VoiceConnectionStatus,
+    entersState,
+} = require('@discordjs/voice');
 const configPath = path.resolve(__dirname, './config.json');
 let config;
+
 try {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 } catch (err) {
@@ -19,13 +33,15 @@ try {
 }
 
 // 디스코드 클라이언트 생성 및 인텐트 설정
-const client = new Client({ intents: [
-    GatewayIntentBits.Guilds, 
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMessages, 
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-]});
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers,
+    ]
+});
 client.commands = new Collection();
 
 // 커맨드 로딩
@@ -60,6 +76,13 @@ const translateClient = new TranslateClient({
         secretAccessKey: config.secretAccessKey,
     },
 });
+const polly = new PollyClient({
+    region: config.region,
+    credentials: {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+    },
+});
 
 // 통역 언어맵
 const languageMap = {
@@ -69,17 +92,17 @@ const languageMap = {
 // 역할 승급 로직
 async function assignRoleIfEligible(member, userData) {
     if (!userData?.Item) return;
-    const chatCount  = parseInt(userData.Item.userChat?.N ?? '0');
+    const chatCount = parseInt(userData.Item.userChat?.N ?? '0');
     const voiceCount = parseInt(userData.Item.joinVoice?.N ?? '0');
-    const ROLE_TIERS = config.roleTiers.slice().sort((a,b)=>a.chat-b.chat);
-    const currentTierIds = ROLE_TIERS.map(t=>t.id);
-    const userCurrentTier = ROLE_TIERS.findLast(tier=>member.roles.cache.has(tier.id));
-    const eligibleTier = ROLE_TIERS.findLast(tier=>chatCount>=tier.chat||voiceCount>=tier.voice);
-    if (!eligibleTier || (userCurrentTier && userCurrentTier.id===eligibleTier.id)) return;
+    const ROLE_TIERS = config.roleTiers.slice().sort((a, b) => a.chat - b.chat);
+    const currentTierIds = ROLE_TIERS.map(t => t.id);
+    const userCurrentTier = ROLE_TIERS.findLast(tier => member.roles.cache.has(tier.id));
+    const eligibleTier = ROLE_TIERS.findLast(tier => chatCount >= tier.chat || voiceCount >= tier.voice);
+    if (!eligibleTier || (userCurrentTier && userCurrentTier.id === eligibleTier.id)) return;
     try {
         // 기존 티어 역할 제거
-        const rolesToRemove = member.roles.cache.filter(r=>currentTierIds.includes(r.id));
-        for (const [_,role] of rolesToRemove) await member.roles.remove(role);
+        const rolesToRemove = member.roles.cache.filter(r => currentTierIds.includes(r.id));
+        for (const [_, role] of rolesToRemove) await member.roles.remove(role);
         // 새 티어 역할 부여
         await member.roles.add(eligibleTier.id);
         // 환영 채널에 메시지
@@ -115,14 +138,118 @@ async function upsertUserStat(userId, userName, field) {
         const putParams = {
             TableName: config.userStatsTable,
             Item: {
-                userId:    { S: userId },
-                userName:  { S: userName },
-                userChat:  { N: field==='userChat'  ? '1':'0' },
-                joinVoice: { N: field==='joinVoice' ? '1':'0' },
+                userId: { S: userId },
+                userName: { S: userName },
+                userChat: { N: field === 'userChat' ? '1' : '0' },
+                joinVoice: { N: field === 'joinVoice' ? '1' : '0' },
                 lastUpdated: { S: now }
             }
         };
         await dynamodbClient.send(new PutItemCommand(putParams));
+    }
+}
+
+// 합성, 인코딩, 보이스 연결 유틸
+const TTS_CHANNEL_ID = config.ttsvoice || config.tts_voice;
+const POLLY_VOICE_ID = config.pollyVoiceId || 'Seoyeon';
+const voiceStates = new Map();
+client._voiceStates = voiceStates;
+
+async function pollyStream(text) {
+    const s = typeof text === 'string' ? text : String(text ?? '');
+    const payload = s.slice(0, 6000).trim();
+    if (!payload) throw new Error('EMPTY_TEXT');
+
+    const out = await polly.send(new SynthesizeSpeechCommand({
+        Text: payload,
+        VoiceId: POLLY_VOICE_ID || 'Seoyeon',
+        Engine: 'neural',
+        OutputFormat: 'mp3',
+        SampleRate: '48000',
+    }));
+    return out.AudioStream;
+}
+
+async function ensureVoice(message) {
+  const vch = message.member?.voice?.channel;
+  if (!vch) throw new Error('JOIN_VOICE_FIRST');
+
+  let state = voiceStates.get(message.guild.id);
+  if (!state) {
+    const connection = joinVoiceChannel({
+      channelId: vch.id,
+      guildId: vch.guild.id,
+      adapterCreator: vch.guild.voiceAdapterCreator,
+      selfDeaf: true,
+    });
+    await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
+
+    const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Pause } });
+    connection.subscribe(player);
+
+    state = { connection, player, queue: [], playing: false };
+    voiceStates.set(message.guild.id, state);
+
+    const interval = setInterval(() => {
+      const channel = message.guild.channels.cache.get(vch.id);
+      if (!channel || channel.members.filter(m => !m.user.bot).size === 0) {
+        clearInterval(interval);
+        connection.destroy();
+        voiceStates.delete(message.guild.id);
+      }
+    }, 10000); // 10초마다 검사
+
+    player.on('idle', () => {
+      state.playing = false;
+      processQueue(message.guild.id);
+    });
+
+    player.on('error', (e) => {
+      console.error('[voice] player error', e);
+      state.playing = false;
+      processQueue(message.guild.id);
+    });
+  }
+  return state;
+}
+
+function cleanMentions(text, message) {
+    return [...message.mentions.users.values()].reduce(
+        (t, u) => t.replaceAll(`<@${u.id}>`, `@${u.username}`).replaceAll(`<@!${u.id}>`, `@${u.username}`),
+        text
+    );
+}
+
+async function processQueue(gid) {
+    const s = voiceStates.get(gid);
+    if (!s || s.playing || s.queue.length === 0) return;
+
+    const job = s.queue.shift();
+    s.playing = true;
+
+    try {
+        const tts = await pollyStream(job.text);
+        let bytes = 0;
+        tts.on('data', (chunk) => { bytes += chunk.length; });
+        tts.once('end', () => {});
+
+        const ff = spawn(ffmpegPath, [
+            '-loglevel', 'quiet',
+            '-i', 'pipe:0',
+            '-f', 's16le', '-ar', '48000', '-ac', '2',
+            'pipe:1'
+        ], { stdio: ['pipe', 'pipe', 'ignore'] });
+
+        tts.pipe(ff.stdin);
+
+        const opus = new prism.opus.Encoder({ rate: 48000, channels: 2, frameSize: 960 });
+        const resource = createAudioResource(ff.stdout.pipe(opus), { inputType: StreamType.Opus });
+
+        s.player.play(resource);
+    } catch (e) {
+        console.error('[queue] error', e);
+        s.playing = false;
+        return processQueue(gid);
     }
 }
 
@@ -140,7 +267,7 @@ client.on(Events.InteractionCreate, async interaction => {
             await command.execute(interaction);
         } catch (err) {
             console.error('명령어 실행 중 오류');
-            const msg = { content:'명령어 실행 중 오류가 발생했습니다.', ephemeral:true };
+            const msg = { content: '명령어 실행 중 오류가 발생했습니다.', ephemeral: true };
             interaction.replied || interaction.deferred
                 ? await interaction.followUp(msg)
                 : await interaction.reply(msg);
@@ -156,7 +283,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
             const welcomeChannel = interaction.guild.channels.cache.get(config.welcomeChannelId);
             if (welcomeChannel?.isTextBased()) {
-            await welcomeChannel.send(`${interaction.member}님이 ${role.name} 역할로 승급했습니다! 🎉`);
+                await welcomeChannel.send(`${interaction.member}님이 ${role.name} 역할로 승급했습니다! 🎉`);
             }
         } catch (err) {
             console.error('역할 부여 중 오류');
@@ -178,6 +305,30 @@ client.on(Events.GuildMemberAdd, async member => {
 
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
+
+    // TTS 전용 채널 처리
+
+    if (TTS_CHANNEL_ID && message.channel.id === String(TTS_CHANNEL_ID)) {
+        const raw = String(message?.content ?? '').trim();
+        const cleaned = cleanMentions ? cleanMentions(raw, message) : raw;
+        const normalized = cleaned.slice(0, 6000);
+
+        if (!normalized) {
+            return;
+        }
+
+        try {
+            const state = await ensureVoice(message);
+
+            state.queue.push({ text: normalized });
+            processQueue(message.guild.id);
+        } catch (e) {
+            console.error('[tts] ensureVoice error', e);
+            if (e?.message === 'JOIN_VOICE_FIRST')
+                await message.reply('먼저 음성 채널에 접속한 뒤 사용합니다.');
+        }
+        return;
+    }
 
     // 통계 업데이트 & 역할 승급 (엉덩리 서버에서만)
     if (message.guild?.id === config.guildId) {
@@ -201,9 +352,9 @@ client.on('messageCreate', async message => {
     if (message.stickers.size > 0) return; // Discord 스티커 사용 시 패스
     // 이미지, 비디오, 오디오일 시 번역 수행 패스
     if (message.attachments.size > 0 &&
-    [...message.attachments.values()].every(a =>
-        ['image/', 'video/', 'audio/'].some(t => a.contentType?.startsWith(t))
-    )
+        [...message.attachments.values()].every(a =>
+            ['image/', 'video/', 'audio/'].some(t => a.contentType?.startsWith(t))
+        )
     ) return;
     // 이모지 사용 시 패스
     const onlyEmojis = message.content.trim().match(
@@ -243,7 +394,7 @@ client.on('messageCreate', async message => {
         const text = [...message.mentions.users.values()].reduce(
             (t, u) =>
                 t.replaceAll(`<@${u.id}>`, `@${u.username}`)
-                 .replaceAll(`<@!${u.id}>`, `@${u.username}`),
+                    .replaceAll(`<@!${u.id}>`, `@${u.username}`),
             message.content
         );
 
@@ -255,7 +406,7 @@ client.on('messageCreate', async message => {
                 TargetLanguageCode: mappedTgt
             })
         );
-        
+
         // 번역 결과 출력
         await message.reply(res.TranslatedText);
 
@@ -266,14 +417,14 @@ client.on('messageCreate', async message => {
 
 // 음성 채널 입장 처리
 client.on('voiceStateUpdate', async (oldState, newState) => {
-    if (!newState.guild || newState.guild.id!==config.guildId) return;
+    if (!newState.guild || newState.guild.id !== config.guildId) return;
     const member = newState.member;
     if (!member || member.user.bot) return;
     if (!oldState.channel && newState.channel) {
         await upsertUserStat(member.id, member.user.username, 'joinVoice');
         const data = await dynamodbClient.send(new GetItemCommand({
             TableName: config.userStatsTable,
-            Key:{ userId:{ S:member.id }}
+            Key: { userId: { S: member.id } }
         }));
         await assignRoleIfEligible(member, data);
     }
