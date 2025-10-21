@@ -115,6 +115,20 @@ async function assignRoleIfEligible(member, userData) {
     }
 }
 
+// 채널 ID 수집 유틸
+function getTTSChannelIds(cfg) {
+    const toArr = v => (v == null ? [] : Array.isArray(v) ? v : [v]);
+    const ids = [
+        ...toArr(cfg.ttsvoice),
+        ...toArr(cfg.tts_voice),
+        ...toArr(cfg.ttsvoice2),
+        ...toArr(cfg.tts_voice2),
+    ]
+        .filter(Boolean)
+        .map(String);
+    return [...new Set(ids)];
+}
+
 // userChat 또는 joinVoice 값을 upsert
 async function upsertUserStat(userId, userName, field) {
     const now = new Date().toISOString();
@@ -150,7 +164,7 @@ async function upsertUserStat(userId, userName, field) {
 }
 
 // 합성, 인코딩, 보이스 연결 유틸
-const TTS_CHANNEL_ID = config.ttsvoice || config.tts_voice;
+const TTS_CHANNEL_IDS = getTTSChannelIds(config);
 const POLLY_VOICE_ID = config.pollyVoiceId || 'Seoyeon';
 const voiceStates = new Map();
 client._voiceStates = voiceStates;
@@ -171,46 +185,46 @@ async function pollyStream(text) {
 }
 
 async function ensureVoice(message) {
-  const vch = message.member?.voice?.channel;
-  if (!vch) throw new Error('JOIN_VOICE_FIRST');
+    const vch = message.member?.voice?.channel;
+    if (!vch) throw new Error('JOIN_VOICE_FIRST');
 
-  let state = voiceStates.get(message.guild.id);
-  if (!state) {
-    const connection = joinVoiceChannel({
-      channelId: vch.id,
-      guildId: vch.guild.id,
-      adapterCreator: vch.guild.voiceAdapterCreator,
-      selfDeaf: true,
-    });
-    await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
+    let state = voiceStates.get(message.guild.id);
+    if (!state) {
+        const connection = joinVoiceChannel({
+            channelId: vch.id,
+            guildId: vch.guild.id,
+            adapterCreator: vch.guild.voiceAdapterCreator,
+            selfDeaf: true,
+        });
+        await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
 
-    const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Pause } });
-    connection.subscribe(player);
+        const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Pause } });
+        connection.subscribe(player);
 
-    state = { connection, player, queue: [], playing: false };
-    voiceStates.set(message.guild.id, state);
+        state = { connection, player, queue: [], playing: false };
+        voiceStates.set(message.guild.id, state);
 
-    const interval = setInterval(() => {
-      const channel = message.guild.channels.cache.get(vch.id);
-      if (!channel || channel.members.filter(m => !m.user.bot).size === 0) {
-        clearInterval(interval);
-        connection.destroy();
-        voiceStates.delete(message.guild.id);
-      }
-    }, 10000); // 10초마다 검사
+        const interval = setInterval(() => {
+            const channel = message.guild.channels.cache.get(vch.id);
+            if (!channel || channel.members.filter(m => !m.user.bot).size === 0) {
+                clearInterval(interval);
+                connection.destroy();
+                voiceStates.delete(message.guild.id);
+            }
+        }, 10000); // 10초마다 검사
 
-    player.on('idle', () => {
-      state.playing = false;
-      processQueue(message.guild.id);
-    });
+        player.on('idle', () => {
+            state.playing = false;
+            processQueue(message.guild.id);
+        });
 
-    player.on('error', (e) => {
-      console.error('[voice] player error', e);
-      state.playing = false;
-      processQueue(message.guild.id);
-    });
-  }
-  return state;
+        player.on('error', (e) => {
+            console.error('[voice] player error', e);
+            state.playing = false;
+            processQueue(message.guild.id);
+        });
+    }
+    return state;
 }
 
 function cleanMentions(text, message) {
@@ -231,7 +245,7 @@ async function processQueue(gid) {
         const tts = await pollyStream(job.text);
         let bytes = 0;
         tts.on('data', (chunk) => { bytes += chunk.length; });
-        tts.once('end', () => {});
+        tts.once('end', () => { });
 
         const ff = spawn(ffmpegPath, [
             '-loglevel', 'quiet',
@@ -308,18 +322,18 @@ client.on('messageCreate', async message => {
 
     // TTS 전용 채널 처리
 
-    if (TTS_CHANNEL_ID && message.channel.id === String(TTS_CHANNEL_ID)) {
+    if (
+        TTS_CHANNEL_IDS.length > 0 &&
+        TTS_CHANNEL_IDS.includes(String(message.channel.id))
+    ) {
         const raw = String(message?.content ?? '').trim();
         const cleaned = cleanMentions ? cleanMentions(raw, message) : raw;
         const normalized = cleaned.slice(0, 6000);
 
-        if (!normalized) {
-            return;
-        }
+        if (!normalized) return;
 
         try {
             const state = await ensureVoice(message);
-
             state.queue.push({ text: normalized });
             processQueue(message.guild.id);
         } catch (e) {
